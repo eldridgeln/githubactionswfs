@@ -30,17 +30,20 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
           TRIVY_RUN_AS_PLUGIN: 'aqua'
           # For http/https proxy configuration add env vars: HTTP_PROXY/HTTPS_PROXY, CA-CRET (path to CA certificate)
+          
           #Upload SARIF file
       - name: Upload SARIF file
-        uses: github/codeql-action/upload-sarif@v1
+        uses: github/codeql-action/upload-sarif@v2
         with:
         # Path to SARIF file relative to the root of the repository
           sarif_file: results.sarif
+          
       - name: Build and push
         uses: docker/build-push-action@v3
         with:
           push: true
           tags: "stalibali/supplychainactionworkflow:${{ github.sha }}"
+          
       - name: Manifest Generation
         run: |
           export BILLY_SERVER=https://billy.codesec.aquasec.com
@@ -57,7 +60,6 @@ jobs:
             --aqua-key "${{ secrets.AQUA_KEY }}" \
             --aqua-secret "${{ secrets.AQUA_SECRET }}" \
             --artifact-path "stalibali/supplychainactionworkflow:${{ github.sha }}" 
-
             # The docker image name:tag of the newly built image
             # --artifact-path "my-image-name:${{ env.tag-version }}" 
             # OR the path to the root folder of your project. I.e my-repo/my-app 
