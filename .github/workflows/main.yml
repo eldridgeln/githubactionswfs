@@ -20,6 +20,8 @@ jobs:
         with:
           args: trivy fs --scanners config,vuln,secret . --sast --reachability
           severity: 'CRITICAL,HIGH'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
           # To customize which severities to scan for, add the following flag: --severity UNKNOWN,LOW,MEDIUM,HIGH,CRITICAL
           # To enable SAST scanning, add: --sast
           # To enable reachability scanning, add: --reachability
@@ -31,27 +33,20 @@ jobs:
           TRIVY_RUN_AS_PLUGIN: 'aqua'
           # For http/https proxy configuration add env vars: HTTP_PROXY/HTTPS_PROXY, CA-CRET (path to CA certificate)
 
-      - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@master
-        with:
-          image-ref: 'docker.io/my-organization/my-app:${{ github.sha }}'
-          format: 'sarif'
-          output: 'trivy-results.sarif'
+       #     - name: Run Trivy vulnerability scanner
+       #       uses: aquasecurity/trivy-action@master
+       #       with:
+       #         image-ref: 'docker.io/my-organization/my-app:${{ github.sha }}'
+       #         format: 'sarif'
+       #         output: 'trivy-results.sarif'
 
+       #Upload Trivy scan results 
       - name: Upload Trivy scan results to GitHub Security tab
         uses: github/codeql-action/upload-sarif@v2
         if: always()
         with:
           sarif_file: 'trivy-results.sarif'
-
-          
-          #Upload SARIF file
- #     - name: Upload SARIF file
- #       uses: github/codeql-action/upload-sarif@v2
- #       with:
-        # Path to SARIF file relative to the root of the repository
-  #        sarif_file: results.sarif
-          
+         
       - name: Build and push
         uses: docker/build-push-action@v3
         with:
