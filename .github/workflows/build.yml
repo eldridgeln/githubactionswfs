@@ -37,7 +37,7 @@ jobs:
           tags: "stalibali/supplychainactionworkflow:${{ github.sha }}"
       - name: Cosign - Sign image with a key
         run: |
-           cosign sign --key env://COSIGN_PRIVATE_KEY ${TAGS} -y
+          cosign sign --key env://COSIGN_PRIVATE_KEY ${TAGS} -y
         env:
           TAGS: stalibali/supplychainactionworkflow:${{ github.sha }}
           COSIGN_PRIVATE_KEY: ${{secrets.COSIGN_KEY}}
