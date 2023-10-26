@@ -3,22 +3,70 @@ on:
   push:
     branches:
       - main
-      - master
+      - cosign
 jobs:
-  checkout:
-    name: Checkout
-    runs-on: ubuntu-18.04
+  aqua:
+    name: Aqua scanner
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@main
+      - name: Run Aqua scanner
+        uses: docker://aquasec/aqua-scanner
+        with:
+          args: trivy fs --security-checks config,vuln,secret . --sast
+          # To customize which severities to scan for, add the following flag: --severity UNKNOWN,LOW,MEDIUM,HIGH,CRITICAL
+          # To enable SAST scanning, add: --sast
+          # To enable npm/dotnet non-lock file scanning, add: --package-json / --dotnet-proj
+        env:
+          AQUA_KEY: ${{ secrets.AQUA_KEY }}
+          AQUA_SECRET: ${{ secrets.AQUA_SECRET }}
+          TRIVY_RUN_AS_PLUGIN: 'aqua'
+          #SAST: 1
+          TRIVY_DEBUG: 1
       - name: Login to DockerHub
         uses: docker/login-action@v2
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
-          GITHUB_TOKEN: ${{ github.token }}
       - name: Build and push
         uses: docker/build-push-action@v3
         with:
           push: true
-          tags: "${{ secrets.DOCKERHUB_USERNAME }}/${{ secrets.DOCKERHUB_REPO }}:${{ github.sha }}"
+          tags: "stalibali/supplychainactionworkflow:${{ github.sha }}"
+      - name: Cosign - Sign image with a key
+        run: |
+           cosign sign --key env://COSIGN_PRIVATE_KEY ${TAGS} -y
+        env:
+          TAGS: stalibali/supplychainactionworkflow:${{ github.sha }}
+          COSIGN_PRIVATE_KEY: ${{secrets.COSIGN_KEY}}
+          COSIGN_PASSWORD: ${{secrets.COSIGN_PASSWORD}}
+      - name: Manifest Generation
+        run: |
+          curl -sLo install.sh download.codesec.aquasec.com/billy/install.sh
+          curl -sLo install.sh.checksum https://github.com/argonsecurity/releases/releases/latest/download/install.sh.checksum
+          if ! cat install.sh.checksum | shasum -a 256 ; then
+            echo "install.sh checksum failed"
+            exit 1
+          fi
+          sh install.sh
+          rm install.sh install.sh.checksum
+          billy generate \
+              --access-token "${{ secrets.GITHUB_TOKEN }}" \
+              --aqua-key "${{ secrets.AQUA_KEY }}" \
+              --aqua-secret "${{ secrets.AQUA_SECRET }}" \
+              --artifact-path "stalibali/supplychainactionworkflow:${{ github.sha }}" \
+              --report-format sbom \
+              --sbom-path sbom.cdx.json
+      - name: Attest SBOM
+        run: cosign attest --key env://COSIGN_PRIVATE_KEY --type cyclonedx --predicate sbom.cdx.json ${TAGS} -y
+        env:
+          TAGS: stalibali/supplychainactionworkflow:${{ github.sha }}
+          COSIGN_PRIVATE_KEY: ${{secrets.COSIGN_KEY}}
+          COSIGN_PASSWORD: ${{secrets.COSIGN_PASSWORD}}
+      - name: Verify Docker SBOM Attestation
+        run: cosign verify-attestation --key env://COSIGN_PUB --type cyclonedx stalibali/supplychainactionworkflow:${{ github.sha }}
+        env:
+          COSIGN_PUB: ${{secrets.COSIGN_PUB}}
