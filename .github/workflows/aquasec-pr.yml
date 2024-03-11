@@ -1,0 +1,19 @@
+name: Aqua
+on: pull_request
+jobs:
+  aqua:
+    name: Aqua scanner
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Run Aqua scanner
+        uses: docker://aquasec/aqua-scanner
+        with:
+          args: trivy fs --scanners config,vuln,secret . --sast
+        env:
+          AQUA_KEY: ${{ secrets.AQUA_KEY }}
+          AQUA_SECRET: ${{ secrets.AQUA_SECRET }}
+          GITHUB_TOKEN: ${{ github.token }}
+          TRIVY_RUN_AS_PLUGIN: 'aqua'
